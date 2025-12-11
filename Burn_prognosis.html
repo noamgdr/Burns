@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Burn Mortality Risk Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background: #f5f7fb;
+      color: #222;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+      padding: 1.5rem;
+    }
+    h1 {
+      font-size: 1.3rem;
+      text-align: center;
+      margin-top: 0;
+      margin-bottom: 0.4rem;
+    }
+    p.subtitle {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #555;
+      margin-top: 0;
+      margin-bottom: 1.25rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
+      gap: 1.5rem;
+    }
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .field-group {
+      margin-bottom: 1rem;
+    }
+    .field-label {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      display: block;
+    }
+    .field-help {
+      font-size: 0.8rem;
+      color: #666;
+      margin-top: 0.1rem;
+    }
+    input[type="number"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.4rem 0.5rem;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    .radio-group {
+      display: flex;
+      gap: 1rem;
+      margin-top: 0.25rem;
+      flex-wrap: wrap;
+    }
+    .radio-group label {
+      font-size: 0.9rem;
+    }
+    button {
+      width: 100%;
+      padding: 0.6rem 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 999px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    .results-wrapper {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1rem;
+      margin-top: 1.25rem;
+    }
+    .results-card {
+      padding: 0.9rem 1rem;
+      border-radius: 10px;
+      background: #f1f5f9;
+      border: 1px solid #d0d7e2;
+      font-size: 0.9rem;
+    }
+    .results-title {
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+      font-size: 0.95rem;
+    }
+    .results-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 0.15rem 0;
+    }
+    .results-label {
+      color: #555;
+    }
+    .results-value {
+      font-weight: 600;
+    }
+    .risk-low { color: #15803d; }
+    .risk-mod { color: #a16207; }
+    .risk-high { color: #b91c1c; }
+    .coeff-note {
+      margin-top: 0.9rem;
+      font-size: 0.78rem;
+      color: #777;
+      line-height: 1.3;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.78rem;
+      background: #e5e7eb;
+      padding: 0.1rem 0.2rem;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Burn Mortality Risk Calculator</h1>
+    <p class="subtitle">
+      Admission model, Revised Baux, and 48-hour landmark model calculated from the same inputs.
+    </p>
+
+    <div class="grid">
+      <!-- INPUTS -->
+      <div>
+        <div class="field-group">
+          <label class="field-label" for="age">Age at admission (years)</label>
+          <input type="number" id="age" min="0" max="120" step="1" value="75" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="tbsa">%TBSA burned</label>
+          <input type="number" id="tbsa" min="0" max="100" step="1" value="25" />
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Inhalation injury at admission</span>
+          <div class="radio-group">
+            <label><input type="radio" name="inh" value="0" checked /> No</label>
+            <label><input type="radio" name="inh" value="1" /> Yes</label>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Pre-existing renal disease</span>
+          <div class="radio-group">
+            <label><input type="radio" name="renal" value="0" checked /> No</label>
+            <label><input type="radio" name="renal" value="1" /> Yes</label>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Mechanical ventilation at 48 hours</span>
+          <div class="radio-group">
+            <label><input type="radio" name="mech" value="0" checked /> No</label>
+            <label><input type="radio" name="mech" value="1" /> Yes</label>
+          </div>
+          <div class="field-help">
+            Status at (or around) 48 hours after admission.
+          </div>
+        </div>
+
+        <button type="button" onclick="calculateAll()">Calculate all three models</button>
+      </div>
+
+      <!-- RESULTS -->
+      <div>
+        <div class="results-wrapper">
+          <!-- Admission multivariable -->
+          <div class="results-card" id="box-adm" style="display:none;">
+            <div class="results-title">Admission multivariable model</div>
+            <div class="results-row">
+              <div class="results-label">P(in-hospital death)</div>
+              <div class="results-value" id="adm-pdeath"></div>
+            </div>
+            <div class="results-row">
+              <div class="results-label">P(survival)</div>
+              <div class="results-value" id="adm-psurv"></div>
+            </div>
+            <div class="results-row">
+              <div class="results-label">Risk category</div>
+              <div class="results-value" id="adm-risk"></div>
+            </div>
+          </div>
+
+          <!-- Revised Baux -->
+          <div class="results-card" id="box-baux" style="display:none;">
+            <div class="results-title">Revised Baux model</div>
+            <div class="results-row">
+              <div class="results-label">Revised Baux score</div>
+              <div class="results-value" id="baux-score"></div>
+            </div>
+            <div class="results-row">
+              <div class="results-label">P(in-hospital death)</div>
+              <div class="results-value" id="baux-pdeath"></div>
+            </div>
+            <div class="results-row">
+              <div class="results-label">P(survival)</div>
+              <div class="results-value" id="baux-psurv"></div>
+            </div>
+            <div class="results-row">
+              <div class="results-label">Risk category</div>
+              <div class="results-value" id="baux-risk"></div>
+            </div>
+          </div>
+
+          <!-- 48h landmark extended -->
+          <div class="results-card" id="box-48h" style="display:none;">
+            <div class="results-title">48-hour landmark model</div>
+            <div class="results-row">
+              <div class="results-label">P(in-hospital death)</div>
+              <div class="results-value" id="h48-pdeath"></div>
+            </div>
+            <div class="results-row">
+              <div class="results-label">P(survival)</div>
+              <div class="results-value" id="h48-psurv"></div>
+            </div>
+            <div class="results-row">
+              <div class="results-label">Risk category</div>
+              <div class="results-value" id="h48-risk"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="coeff-note">
+      <strong>Formulas</strong><br>
+      Admission multivariable model (107 patients):<br>
+      <code>logit(p_death) = −11.83107 + 0.11685×Age + 0.09310×%TBSA + 2.04391×Inhalation + 2.26634×RenalDisease</code><br>
+      where Inhalation = 1 if present, 0 otherwise; RenalDisease = 1 if present, 0 otherwise.
+      <br><br>
+      Revised Baux score and logistic model (Osler):<br>
+      <code>Revised Baux = Age + %TBSA + 17×Inhalation</code><br>
+      <code>logit(p_death) = −8.8163 + 0.0775×(Revised Baux)</code>
+      <br><br>
+      48h extended landmark model (89 patients, survivors to 48h with complete data):<br>
+      <code>logit(p_death) = −12.60461 + 0.12192×Age + 0.05414×%TBSA + 2.02439×RenalDisease + 2.41720×MechVent48h</code><br>
+      where MechVent48h = 1 if mechanically ventilated at 48h, 0 otherwise.<br>
+      For all models: <code>p_death = 1 / (1 + exp(−logit))</code>, <code>p_surv = 1 − p_death</code>.
+    </div>
+  </div>
+
+  <script>
+    function getRadioValue(name) {
+      const radios = document.querySelectorAll('input[name="' + name + '"]');
+      let val = 0;
+      radios.forEach(r => { if (r.checked) val = parseFloat(r.value); });
+      return val;
+    }
+
+    function classifyRisk(p) {
+      if (p < 0.2) {
+        return { text: 'Low', className: 'risk-low' };
+      } else if (p < 0.5) {
+        return { text: 'Moderate', className: 'risk-mod' };
+      } else {
+        return { text: 'High', className: 'risk-high' };
+      }
+    }
+
+    function calculateAll() {
+      const age  = parseFloat(document.getElementById('age').value) || 0;
+      const tbsa = parseFloat(document.getElementById('tbsa').value) || 0;
+      const inh  = getRadioValue('inh');    // 0/1
+      const renal = getRadioValue('renal'); // 0/1
+      const mech  = getRadioValue('mech');  // 0/1
+
+      // === 1) Admission multivariable model ===
+      const adm_int = -11.83107;
+      const adm_b_age =  0.11685;
+      const adm_b_tbsa = 0.09310;
+      const adm_b_inh =  2.04391;
+      const adm_b_renal = 2.26634;
+
+      const adm_lp = adm_int +
+                     adm_b_age  * age +
+                     adm_b_tbsa * tbsa +
+                     adm_b_inh  * inh +
+                     adm_b_renal* renal;
+      const adm_pdeath = 1 / (1 + Math.exp(-adm_lp));
+      const adm_psurv  = 1 - adm_pdeath;
+
+      document.getElementById('adm-pdeath').textContent = (adm_pdeath * 100).toFixed(1) + '%';
+      document.getElementById('adm-psurv').textContent  = (adm_psurv * 100).toFixed(1) + '%';
+
+      const admRisk = classifyRisk(adm_pdeath);
+      const admRiskElem = document.getElementById('adm-risk');
+      admRiskElem.textContent = admRisk.text;
+      admRiskElem.className = 'results-value ' + admRisk.className;
+
+      document.getElementById('box-adm').style.display = 'block';
+
+      // === 2) Revised Baux logistic model ===
+      const r_baux = age + tbsa + 17 * inh;
+      const baux_lp = -8.8163 + 0.0775 * r_baux;
+      const baux_pdeath = 1 / (1 + Math.exp(-baux_lp));
+      const baux_psurv  = 1 - baux_pdeath;
+
+      document.getElementById('baux-score').textContent = r_baux.toFixed(1);
+      document.getElementById('baux-pdeath').textContent = (baux_pdeath * 100).toFixed(1) + '%';
+      document.getElementById('baux-psurv').textContent  = (baux_psurv * 100).toFixed(1) + '%';
+
+      const bauxRisk = classifyRisk(baux_pdeath);
+      const bauxRiskElem = document.getElementById('baux-risk');
+      bauxRiskElem.textContent = bauxRisk.text;
+      bauxRiskElem.className = 'results-value ' + bauxRisk.className;
+
+      document.getElementById('box-baux').style.display = 'block';
+
+      // === 3) 48h extended landmark model ===
+      const h48_int = -12.60461;
+      const h48_b_age  = 0.12192;
+      const h48_b_tbsa = 0.05414;
+      const h48_b_renal = 2.02439;
+      const h48_b_mech  = 2.41720;
+
+      const h48_lp = h48_int +
+                     h48_b_age  * age +
+                     h48_b_tbsa * tbsa +
+                     h48_b_renal* renal +
+                     h48_b_mech * mech;
+
+      const h48_pdeath = 1 / (1 + Math.exp(-h48_lp));
+      const h48_psurv  = 1 - h48_pdeath;
+
+      document.getElementById('h48-pdeath').textContent = (h48_pdeath * 100).toFixed(1) + '%';
+      document.getElementById('h48-psurv').textContent  = (h48_psurv * 100).toFixed(1) + '%';
+
+      const h48Risk = classifyRisk(h48_pdeath);
+      const h48RiskElem = document.getElementById('h48-risk');
+      h48RiskElem.textContent = h48Risk.text;
+      h48RiskElem.className = 'results-value ' + h48Risk.className;
+
+      document.getElementById('box-48h').style.display = 'block';
+    }
+
+    // Auto-run once on load for default values
+    window.addEventListener('load', calculateAll);
+  </script>
+</body>
+</html>
